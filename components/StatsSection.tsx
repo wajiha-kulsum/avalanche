@@ -30,103 +30,69 @@ export function StatsSection() {
   }
 
   return (
-    <section className="py-20 px-4 bg-black/20">
-      <div className="container mx-auto">
+    <section className="py-20 px-4 relative overflow-hidden">
+      {/* Top gradient mask to blend with previous section */}
+      <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-gray-900 via-gray-800/50 to-transparent z-0"></div>
+      
+      {/* Background with gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-gray-900 to-blue-900/20"></div>
+      
+      {/* Bottom gradient mask to blend with next section */}
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-gray-900 via-gray-800/50 to-transparent z-0"></div>
+
+      <div className="container mx-auto relative z-10">
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-            Platform
-            <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-              {" "}Metrics
-            </span>
-          </h2>
-          <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-            Real-time statistics showing the growth of our time-based economy
-          </p>
+          <h2 className="text-4xl font-bold text-white mb-4">Platform Statistics</h2>
+          <p className="text-gray-400 text-lg">Real-time metrics from our growing ecosystem</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {/* Total Minutes Traded */}
-          <div className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 backdrop-blur-sm rounded-2xl p-8 border border-purple-500/20 text-center">
-            <div className="text-4xl mb-2">⏰</div>
-            <div className="text-3xl md:text-4xl font-bold text-white mb-2">
+          {/* Total Minutes */}
+          <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-8 border border-gray-700 hover:border-purple-500 transition-all text-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center text-2xl mb-4 mx-auto">
+              ⏰
+            </div>
+            <div className="text-3xl font-bold text-white mb-2">
               {formatNumber(stats.totalMinutes)}
             </div>
-            <div className="text-gray-300 text-sm uppercase tracking-wide">
-              Minutes Traded
-            </div>
-            <div className="text-green-400 text-sm mt-2">
-              ↗ +12.5% this week
-            </div>
+            <div className="text-gray-400 text-sm">Total Minutes Traded</div>
+            <div className="text-green-400 text-xs mt-1">↗ +2.4% (24h)</div>
           </div>
 
           {/* Active Creators */}
-          <div className="bg-gradient-to-br from-blue-600/20 to-cyan-600/20 backdrop-blur-sm rounded-2xl p-8 border border-blue-500/20 text-center">
-            <div className="text-4xl mb-2">👥</div>
-            <div className="text-3xl md:text-4xl font-bold text-white mb-2">
+          <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-8 border border-gray-700 hover:border-blue-500 transition-all text-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center text-2xl mb-4 mx-auto">
+              👥
+            </div>
+            <div className="text-3xl font-bold text-white mb-2">
               {formatNumber(stats.activeCreators)}
             </div>
-            <div className="text-gray-300 text-sm uppercase tracking-wide">
-              Active Creators
-            </div>
-            <div className="text-green-400 text-sm mt-2">
-              ↗ +8.2% this month
-            </div>
+            <div className="text-gray-400 text-sm">Active Creators</div>
+            <div className="text-green-400 text-xs mt-1">↗ +1.8% (24h)</div>
           </div>
 
           {/* Total Transactions */}
-          <div className="bg-gradient-to-br from-green-600/20 to-teal-600/20 backdrop-blur-sm rounded-2xl p-8 border border-green-500/20 text-center">
-            <div className="text-4xl mb-2">🚀</div>
-            <div className="text-3xl md:text-4xl font-bold text-white mb-2">
+          <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-8 border border-gray-700 hover:border-green-500 transition-all text-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl flex items-center justify-center text-2xl mb-4 mx-auto">
+              💎
+            </div>
+            <div className="text-3xl font-bold text-white mb-2">
               {formatNumber(stats.totalTransactions)}
             </div>
-            <div className="text-gray-300 text-sm uppercase tracking-wide">
-              Transactions
-            </div>
-            <div className="text-green-400 text-sm mt-2">
-              ↗ +15.7% today
-            </div>
+            <div className="text-gray-400 text-sm">Total Transactions</div>
+            <div className="text-green-400 text-xs mt-1">↗ +5.2% (24h)</div>
           </div>
 
           {/* Average Time Value */}
-          <div className="bg-gradient-to-br from-orange-600/20 to-red-600/20 backdrop-blur-sm rounded-2xl p-8 border border-orange-500/20 text-center">
-            <div className="text-4xl mb-2">💎</div>
-            <div className="text-3xl md:text-4xl font-bold text-white mb-2">
-              {stats.avgTimeValue.toFixed(3)}
+          <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-8 border border-gray-700 hover:border-yellow-500 transition-all text-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center text-2xl mb-4 mx-auto">
+              📈
             </div>
-            <div className="text-gray-300 text-sm uppercase tracking-wide">
-              AVAX per Minute
+            <div className="text-3xl font-bold text-white mb-2">
+              ${stats.avgTimeValue.toFixed(3)}
             </div>
-            <div className="text-green-400 text-sm mt-2">
-              ↗ +3.1% (24h)
-            </div>
-          </div>
-        </div>
-
-        {/* Live Activity Feed */}
-        <div className="mt-16">
-          <h3 className="text-2xl font-bold text-white text-center mb-8">
-            Live Activity
-          </h3>
-          
-          <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 border border-white/10 max-w-4xl mx-auto">
-            <div className="space-y-4">
-              {[
-                { user: "Creator Alice", action: "earned 45 minutes", time: "2s ago", color: "text-green-400" },
-                { user: "Fan Bob", action: "spent 20 minutes on exclusive chat", time: "5s ago", color: "text-purple-400" },
-                { user: "Creator Charlie", action: "launched new time token", time: "12s ago", color: "text-blue-400" },
-                { user: "Fan Diana", action: "joined premium community", time: "18s ago", color: "text-pink-400" },
-                { user: "Creator Eve", action: "earned 120 minutes", time: "25s ago", color: "text-green-400" }
-              ].map((activity, index) => (
-                <div key={index} className="flex items-center justify-between py-2 border-b border-white/5 last:border-b-0">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-                    <span className="text-white font-medium">{activity.user}</span>
-                    <span className="text-gray-400">{activity.action}</span>
-                  </div>
-                  <div className="text-gray-500 text-sm">{activity.time}</div>
-                </div>
-              ))}
-            </div>
+            <div className="text-gray-400 text-sm">Avg Time Value (AVAX/min)</div>
+            <div className="text-red-400 text-xs mt-1">↘ -0.8% (24h)</div>
           </div>
         </div>
       </div>
