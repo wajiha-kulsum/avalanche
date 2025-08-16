@@ -29,4 +29,18 @@ export interface WalletConnection {
   connect: () => void
   disconnect: () => void
   switchNetwork: (chainId: number) => void
+}
+
+// Core Wallet and Ethereum provider types
+declare global {
+  interface Window {
+    ethereum?: {
+      isMetaMask?: boolean
+      isAvalanche?: boolean // Core Wallet detection
+      isCoinbaseWallet?: boolean
+      request: (args: { method: string; params?: any[] }) => Promise<any>
+      on: (event: string, listener: (...args: any[]) => void) => void
+      removeListener: (event: string, listener: (...args: any[]) => void) => void
+    }
+  }
 } 

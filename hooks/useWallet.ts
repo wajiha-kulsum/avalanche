@@ -2,7 +2,7 @@
 
 import { useAccount, useConnect, useDisconnect, useChainId, useSwitchChain } from 'wagmi'
 import { WalletState, NetworkStatus, WalletConnection } from '../types/wallet'
-import { DEFAULT_CHAIN } from '../config/constants'
+import { avalancheFuji } from 'wagmi/chains'
 
 export function useWallet(): WalletState & WalletConnection {
   const { address, isConnected, isConnecting, isDisconnected, chain } = useAccount()
@@ -41,8 +41,8 @@ export function useNetworkStatus(): NetworkStatus {
 
   return {
     isConnected,
-    isCorrectNetwork: chainId === DEFAULT_CHAIN,
+    isCorrectNetwork: chainId === avalancheFuji.id,
     currentChainId: chainId,
-    targetChainId: DEFAULT_CHAIN,
+    targetChainId: avalancheFuji.id,
   }
 } 
