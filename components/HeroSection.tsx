@@ -20,7 +20,7 @@ export function HeroSection() {
       name: "Kawz", 
       price: "$6.23",
       avatar: "🐻", 
-      description: "Founder @ Timefun // Time is the most valuable asset",
+      description: "Founder @ Avafun // Time is the most valuable asset",
       stats: { rating: "5", responseRate: "100% response rate" },
       image: "/images/nfts/12.webp",
       bgColor: "from-orange-600 to-red-700"

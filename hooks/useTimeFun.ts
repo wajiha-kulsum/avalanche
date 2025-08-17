@@ -1,470 +1,440 @@
-'use client'
+import { useWriteContract, useReadContract, useAccount, useWaitForTransactionReceipt } from 'wagmi'
+import { parseEther, formatEther } from 'viem'
+import { CONTRACT_ADDRESSES } from '../config/constants'
+import type { Creator } from '../types'
+import toast from 'react-hot-toast'
+import React from 'react'
 
-import { useReadContract, useWriteContract, useWatchContractEvent } from 'wagmi'
-import { parseEther, formatEther, Address } from 'viem'
-import { useState, useEffect } from 'react'
-
-// Contract ABIs (simplified for key functions)
-const FACTORY_ABI = [
+// TimeFun contract ABI - exact match to deployed contract
+const TIMEFUN_ABI = [
   {
     "inputs": [
       {"internalType": "string", "name": "name", "type": "string"},
-      {"internalType": "string", "name": "symbol", "type": "string"},
-      {"internalType": "string", "name": "creatorName", "type": "string"},
-      {"internalType": "string", "name": "description", "type": "string"},
-      {"internalType": "string", "name": "profileImage", "type": "string"}
+      {"internalType": "string", "name": "bio", "type": "string"},
+      {"internalType": "string", "name": "profileImage", "type": "string"},
+      {"internalType": "string", "name": "twitter", "type": "string"}
     ],
-    "name": "createToken",
-    "outputs": [{"internalType": "address", "name": "", "type": "address"}],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getAllTokens",
-    "outputs": [{"internalType": "address[]", "name": "", "type": "address[]"}],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [{"internalType": "uint256", "name": "limit", "type": "uint256"}],
-    "name": "getTrendingTokens",
-    "outputs": [{"internalType": "address[]", "name": "", "type": "address[]"}],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [{"internalType": "address", "name": "tokenAddress", "type": "address"}],
-    "name": "getTokenInfo",
-    "outputs": [
-      {"internalType": "string", "name": "name", "type": "string"},
-      {"internalType": "string", "name": "symbol", "type": "string"},
-      {"internalType": "address", "name": "creator", "type": "address"},
-      {"internalType": "uint256", "name": "totalSupply", "type": "uint256"},
-      {"internalType": "uint256", "name": "currentPrice", "type": "uint256"},
-      {"internalType": "uint256", "name": "marketCap", "type": "uint256"},
-      {"internalType": "bool", "name": "tradingEnabled", "type": "bool"}
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  }
-] as const
-
-const TOKEN_ABI = [
-  {
-    "inputs": [{"internalType": "uint256", "name": "minTokensOut", "type": "uint256"}],
-    "name": "buy",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {"internalType": "uint256", "name": "tokenAmount", "type": "uint256"},
-      {"internalType": "uint256", "name": "minEthOut", "type": "uint256"}
-    ],
-    "name": "sell",
+    "name": "joinAsCreator",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
-    "inputs": [{"internalType": "uint256", "name": "tokenAmount", "type": "uint256"}],
+    "inputs": [
+      {"internalType": "uint256", "name": "creatorId", "type": "uint256"},
+      {"internalType": "uint256", "name": "shares", "type": "uint256"}
+    ],
+    "name": "buyShares",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "uint256", "name": "creatorId", "type": "uint256"},
+      {"internalType": "uint256", "name": "shares", "type": "uint256"}
+    ],
+    "name": "sellShares",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "uint256", "name": "creatorId", "type": "uint256"}
+    ],
+    "name": "getCreatorInfo",
+    "outputs": [
+      {"internalType": "address", "name": "creatorAddress", "type": "address"},
+      {"internalType": "string", "name": "name", "type": "string"},
+      {"internalType": "string", "name": "bio", "type": "string"},
+      {"internalType": "string", "name": "profileImage", "type": "string"},
+      {"internalType": "string", "name": "twitter", "type": "string"},
+      {"internalType": "uint256", "name": "totalShares", "type": "uint256"},
+      {"internalType": "uint256", "name": "currentPrice", "type": "uint256"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getAllCreators",
+    "outputs": [
+      {"internalType": "uint256[]", "name": "", "type": "uint256[]"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "uint256", "name": "creatorId", "type": "uint256"},
+      {"internalType": "uint256", "name": "shares", "type": "uint256"}
+    ],
     "name": "getBuyPrice",
-    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+    "outputs": [
+      {"internalType": "uint256", "name": "", "type": "uint256"}
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
-    "inputs": [{"internalType": "uint256", "name": "tokenAmount", "type": "uint256"}],
+    "inputs": [
+      {"internalType": "uint256", "name": "creatorId", "type": "uint256"},
+      {"internalType": "uint256", "name": "shares", "type": "uint256"}
+    ],
     "name": "getSellPrice",
-    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [{"internalType": "uint256", "name": "ethAmount", "type": "uint256"}],
-    "name": "calculateTokensForEth",
-    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getCurrentPrice",
-    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getMarketCap",
-    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [{"internalType": "address", "name": "account", "type": "address"}],
-    "name": "balanceOf",
-    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "totalSupply",
-    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "creatorName",
-    "outputs": [{"internalType": "string", "name": "", "type": "string"}],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "description",
-    "outputs": [{"internalType": "string", "name": "", "type": "string"}],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [{"internalType": "uint256", "name": "minutes", "type": "uint256"}],
-    "name": "requestVideoCall",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [{"internalType": "uint256", "name": "minutes", "type": "uint256"}],
-    "name": "requestVoiceCall",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "sendMessage",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {"indexed": true, "internalType": "address", "name": "buyer", "type": "address"},
-      {"indexed": false, "internalType": "uint256", "name": "tokensAmount", "type": "uint256"},
-      {"indexed": false, "internalType": "uint256", "name": "ethAmount", "type": "uint256"}
+    "outputs": [
+      {"internalType": "uint256", "name": "", "type": "uint256"}
     ],
-    "name": "Buy",
-    "type": "event"
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    "anonymous": false,
     "inputs": [
-      {"indexed": true, "internalType": "address", "name": "seller", "type": "address"},
-      {"indexed": false, "internalType": "uint256", "name": "tokensAmount", "type": "uint256"},
-      {"indexed": false, "internalType": "uint256", "name": "ethAmount", "type": "uint256"}
+      {"internalType": "uint256", "name": "creatorId", "type": "uint256"},
+      {"internalType": "address", "name": "holder", "type": "address"}
     ],
-    "name": "Sell",
-    "type": "event"
+    "name": "getSharesOwned",
+    "outputs": [
+      {"internalType": "uint256", "name": "", "type": "uint256"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "uint256", "name": "creatorId", "type": "uint256"},
+      {"internalType": "address", "name": "user", "type": "address"}
+    ],
+    "name": "hasAccessTo",
+    "outputs": [
+      {"internalType": "bool", "name": "", "type": "bool"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "address", "name": "", "type": "address"}
+    ],
+    "name": "creatorToId",
+    "outputs": [
+      {"internalType": "uint256", "name": "", "type": "uint256"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
   }
 ] as const
 
-import { FACTORY_ADDRESS, USE_MOCK_DATA, SAMPLE_TOKENS } from '../config/contracts'
+// Add transaction state management
+let isTransactionPending = false
 
-// Types
-export interface TokenInfo {
-  address: Address
-  name: string
-  symbol: string
-  creator: Address
-  totalSupply: bigint
-  currentPrice: bigint
-  marketCap: bigint
-  tradingEnabled: boolean
-  creatorName?: string
-  description?: string
-}
+export function useTimeFun() {
+  const { address } = useAccount()
+  const { writeContract, isPending, data: hash, reset, error } = useWriteContract()
 
-export interface PriceData {
-  timestamp: number
-  price: number
-  volume: number
-}
-
-// Hook to get all tokens from factory
-export function useAllTokens() {
-  const { data: tokens, isLoading, error } = useReadContract({
-    address: FACTORY_ADDRESS,
-    abi: FACTORY_ABI,
-    functionName: 'getAllTokens',
-    query: {
-      enabled: !USE_MOCK_DATA
-    }
+  // Wait for transaction receipt
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
   })
 
-  // Return mock data if contracts not deployed
-  if (USE_MOCK_DATA) {
-    return {
-      tokens: SAMPLE_TOKENS,
-      isLoading: false,
-      error: null
+  // Reset transaction state when confirmed
+  React.useEffect(() => {
+    if (isConfirmed) {
+      isTransactionPending = false
+      reset() // Reset writeContract state
     }
-  }
+  }, [isConfirmed, reset])
 
-  return {
-    tokens: tokens || [],
-    isLoading,
-    error
-  }
-}
-
-// Hook to get trending tokens
-export function useTrendingTokens(limit: number = 10) {
-  const { data: tokens, isLoading, error } = useReadContract({
-    address: FACTORY_ADDRESS,
-    abi: FACTORY_ABI,
-    functionName: 'getTrendingTokens',
-    args: [BigInt(limit)],
-    query: {
-      enabled: !USE_MOCK_DATA
+  // Helper functions with toast notifications
+  const joinCreator = async (name: string, bio: string, profileImage: string, twitter: string) => {
+    if (isTransactionPending) {
+      toast.error('Please wait for the current transaction to complete')
+      return
     }
-  })
 
-  // Return mock data if contracts not deployed
-  if (USE_MOCK_DATA) {
-    return {
-      tokens: SAMPLE_TOKENS.slice(0, limit),
-      isLoading: false,
-      error: null
-    }
-  }
-
-  return {
-    tokens: tokens || [],
-    isLoading,
-    error
-  }
-}
-
-// Hook to get token info
-export function useTokenInfo(tokenAddress: Address) {
-  const { data, isLoading, error } = useReadContract({
-    address: FACTORY_ADDRESS,
-    abi: FACTORY_ABI,
-    functionName: 'getTokenInfo',
-    args: [tokenAddress],
-  })
-
-  const tokenInfo: TokenInfo | null = data ? {
-    address: tokenAddress,
-    name: data[0],
-    symbol: data[1],
-    creator: data[2],
-    totalSupply: data[3],
-    currentPrice: data[4],
-    marketCap: data[5],
-    tradingEnabled: data[6]
-  } : null
-
-  return {
-    tokenInfo,
-    isLoading,
-    error
-  }
-}
-
-// Hook to get token balance for user
-export function useTokenBalance(tokenAddress: Address, userAddress?: Address) {
-  const { data: balance, isLoading } = useReadContract({
-    address: tokenAddress,
-    abi: TOKEN_ABI,
-    functionName: 'balanceOf',
-    args: userAddress ? [userAddress] : undefined,
-    query: {
-      enabled: !!userAddress
-    }
-  })
-
-  return {
-    balance: balance || 0n,
-    balanceFormatted: balance ? formatEther(balance) : '0',
-    isLoading
-  }
-}
-
-// Hook to buy tokens
-export function useBuyTokens() {
-  const { writeContract, isPending, error } = useWriteContract()
-
-  const buyTokens = async (tokenAddress: Address, ethAmount: string, slippage: number = 5) => {
     try {
-      const ethValue = parseEther(ethAmount)
-      const minTokensOut = 0n // Could calculate based on slippage
+      isTransactionPending = true
       
-      await writeContract({
-        address: tokenAddress,
-        abi: TOKEN_ABI,
-        functionName: 'buy',
-        args: [minTokensOut],
-        value: ethValue,
+      writeContract({
+        address: CONTRACT_ADDRESSES.TIMEFUN as `0x${string}`,
+        abi: TIMEFUN_ABI,
+        functionName: 'joinAsCreator',
+        args: [name, bio, profileImage, twitter]
       })
-    } catch (err) {
-      console.error('Buy failed:', err)
-      throw err
+
+    } catch (error: any) {
+      isTransactionPending = false
+      console.error('Join creator error:', error)
+      if (error.message?.includes('Already registered')) {
+        toast.error('You are already registered as a creator!')
+      } else if (error.message?.includes('User rejected')) {
+        toast.error('Transaction cancelled by user')
+      } else {
+        toast.error('Failed to join as creator. Please try again.')
+      }
+      throw error
     }
   }
 
-  return {
-    buyTokens,
-    isPending,
-    error
-  }
-}
+  const purchaseShares = async (creatorId: number, shares: number, priceInEth: string) => {
+    if (isTransactionPending) {
+      toast.error('Please wait for the current transaction to complete')
+      return
+    }
 
-// Hook to sell tokens
-export function useSellTokens() {
-  const { writeContract, isPending, error } = useWriteContract()
-
-  const sellTokens = async (tokenAddress: Address, tokenAmount: string, slippage: number = 5) => {
     try {
-      const tokenValue = parseEther(tokenAmount)
-      const minEthOut = 0n // Could calculate based on slippage
+      isTransactionPending = true
+      console.log(`PURCHASING: CreatorId=${creatorId}, Shares=${shares}, ETH=${priceInEth}`)
       
-      await writeContract({
-        address: tokenAddress,
-        abi: TOKEN_ABI,
-        functionName: 'sell',
-        args: [tokenValue, minEthOut],
+      const result = await writeContract({
+        address: CONTRACT_ADDRESSES.TIMEFUN as `0x${string}`,
+        abi: TIMEFUN_ABI,
+        functionName: 'buyShares',
+        args: [BigInt(creatorId), BigInt(shares)],
+        value: parseEther(priceInEth),
+        gas: BigInt(200000) // Set reasonable gas limit
       })
-    } catch (err) {
-      console.error('Sell failed:', err)
-      throw err
+
+      console.log('Transaction submitted:', result)
+
+    } catch (error: any) {
+      isTransactionPending = false
+      console.error('Buy shares error:', error)
+      if (error.message?.includes('User rejected')) {
+        toast.error('Transaction cancelled by user')
+      } else if (error.message?.includes('Insufficient payment')) {
+        toast.error('Not enough ETH for the shares')
+      } else {
+        toast.error('Failed to buy shares. Please try again.')
+      }
+      throw error
     }
   }
 
+  const sellCreatorShares = async (creatorId: number, shares: number) => {
+    if (isTransactionPending) {
+      toast.error('Please wait for the current transaction to complete')
+      return
+    }
+
+    try {
+      isTransactionPending = true
+      
+      writeContract({
+        address: CONTRACT_ADDRESSES.TIMEFUN as `0x${string}`,
+        abi: TIMEFUN_ABI,
+        functionName: 'sellShares',
+        args: [BigInt(creatorId), BigInt(shares)]
+      })
+
+    } catch (error: any) {
+      isTransactionPending = false
+      console.error('Sell shares error:', error)
+      if (error.message?.includes('Insufficient shares')) {
+        toast.error('You don\'t have enough shares to sell!')
+      } else if (error.message?.includes('Insufficient contract balance')) {
+        toast.error('Contract doesn\'t have enough funds. Try again later.')
+      } else if (error.message?.includes('User rejected')) {
+        toast.error('Transaction cancelled by user')
+      } else {
+        toast.error('Failed to sell shares. Please try again.')
+      }
+      throw error
+    }
+  }
+
+  // Get all creator IDs
+  const { data: creatorIds, refetch: refetchCreators } = useReadContract({
+    address: CONTRACT_ADDRESSES.TIMEFUN as `0x${string}`,
+    abi: TIMEFUN_ABI,
+    functionName: 'getAllCreators',
+  })
+
+  // Handle transaction confirmation notifications and data refresh
+  React.useEffect(() => {
+    if (isConfirmed) {
+      toast.success('Transaction confirmed! ✅')
+      // Immediately refetch all data to update balances
+      refetchCreators()
+    }
+  }, [isConfirmed, refetchCreators])
+
+  // Handle transaction errors
+  React.useEffect(() => {
+    if (error) {
+      isTransactionPending = false
+      console.error('Transaction error:', error)
+    }
+  }, [error])
+
   return {
-    sellTokens,
+    // Write functions
+    joinCreator,
+    purchaseShares, 
+    sellCreatorShares,
+    
+    // Loading states
     isPending,
-    error
+    isConfirming,
+    isConfirmed,
+    
+    // Data
+    creatorIds: creatorIds as number[] | undefined,
+    refetchCreators,
+    
+    // Contract info
+    contractAddress: CONTRACT_ADDRESSES.TIMEFUN
   }
 }
 
-// Hook to get buy/sell prices
-export function useTokenPrices(tokenAddress: Address, amount: string = '1') {
-  const tokenAmount = parseEther(amount)
-  
-  const { data: buyPrice } = useReadContract({
-    address: tokenAddress,
-    abi: TOKEN_ABI,
+// Hook to get individual creator info
+export function useCreatorInfo(creatorId: number) {
+  const { data: creatorData, refetch } = useReadContract({
+    address: CONTRACT_ADDRESSES.TIMEFUN as `0x${string}`,
+    abi: TIMEFUN_ABI,
+    functionName: 'getCreatorInfo',
+    args: [BigInt(creatorId)],
+    query: { 
+      enabled: !!creatorId,
+      refetchOnWindowFocus: false,
+    }
+  })
+
+  const creator: Creator | undefined = creatorData ? {
+    id: creatorId,
+    address: creatorData[0],
+    name: creatorData[1],
+    bio: creatorData[2], 
+    profileImage: creatorData[3],
+    twitter: creatorData[4],
+    totalShares: Number(creatorData[5]),
+    currentPrice: Number(formatEther(creatorData[6])),
+    joinedAt: Date.now(), // TODO: Add this to contract
+    isActive: true
+  } : undefined
+
+  return {
+    creator,
+    refetch
+  }
+}
+
+// Hook to get shares owned for a specific user (for ChatInterface)
+export function useUserSharesForAddress(creatorId: number, userAddress?: string) {
+  const { data: shares, refetch } = useReadContract({
+    address: CONTRACT_ADDRESSES.TIMEFUN as `0x${string}`,
+    abi: TIMEFUN_ABI,
+    functionName: 'getSharesOwned',
+    args: userAddress ? [BigInt(creatorId), userAddress as `0x${string}`] : undefined,
+    query: { 
+      enabled: !!creatorId && !!userAddress,
+      refetchOnWindowFocus: false,
+    }
+  })
+
+  return {
+    shares: shares ? Number(shares) : 0,
+    refetch
+  }
+}
+
+// Hook to check access for a specific user (for ChatInterface)
+export function useUserAccess(creatorId: number, userAddress?: string) {
+  const { data: hasAccess, refetch } = useReadContract({
+    address: CONTRACT_ADDRESSES.TIMEFUN as `0x${string}`,
+    abi: TIMEFUN_ABI,
+    functionName: 'hasAccessTo',
+    args: userAddress ? [BigInt(creatorId), userAddress as `0x${string}`] : undefined,
+    query: { 
+      enabled: !!creatorId && !!userAddress,
+      refetchOnWindowFocus: false,
+    }
+  })
+
+  return {
+    hasAccess: Boolean(hasAccess),
+    refetch
+  }
+}
+
+// Hook to get share price
+export function useSharePrice(creatorId: number, shares: number = 1) {
+  const { data: priceWei, refetch } = useReadContract({
+    address: CONTRACT_ADDRESSES.TIMEFUN as `0x${string}`,
+    abi: TIMEFUN_ABI,
     functionName: 'getBuyPrice',
-    args: [tokenAmount],
+    args: [BigInt(creatorId), BigInt(shares)],
+    query: { 
+      enabled: !!creatorId && shares > 0,
+      refetchOnWindowFocus: false,
+    }
   })
 
-  const { data: sellPrice } = useReadContract({
-    address: tokenAddress,
-    abi: TOKEN_ABI,
+  const priceInEth = priceWei ? formatEther(priceWei) : '0'
+
+  return {
+    priceInEth,
+    priceWei,
+    refetch
+  }
+}
+
+// Hook to get user's shares in a creator
+export function useUserShares(creatorId: number) {
+  const { address } = useAccount()
+  
+  const { data: shares, refetch } = useReadContract({
+    address: CONTRACT_ADDRESSES.TIMEFUN as `0x${string}`,
+    abi: TIMEFUN_ABI,
+    functionName: 'getSharesOwned',
+    args: [BigInt(creatorId), address as `0x${string}`],
+    query: { 
+      enabled: !!creatorId && !!address,
+      refetchOnWindowFocus: false,
+    }
+  })
+
+  return {
+    shares: shares ? Number(shares) : 0,
+    refetch
+  }
+} 
+
+// Hook to check if user is already a creator
+export function useIsCreator(address?: string) {
+  const { data: creatorId } = useReadContract({
+    address: CONTRACT_ADDRESSES.TIMEFUN as `0x${string}`,
+    abi: TIMEFUN_ABI,
+    functionName: 'creatorToId',
+    args: address ? [address as `0x${string}`] : undefined,
+    query: { enabled: !!address }
+  })
+
+  return {
+    isCreator: !!creatorId && creatorId !== BigInt(0),
+    creatorId: creatorId ? Number(creatorId) : 0
+  }
+} 
+
+// Hook to get sell price
+export function useSellPrice(creatorId: number, shares: number = 1) {
+  const { data: sellPriceWei, refetch } = useReadContract({
+    address: CONTRACT_ADDRESSES.TIMEFUN as `0x${string}`,
+    abi: TIMEFUN_ABI,
     functionName: 'getSellPrice',
-    args: [tokenAmount],
-    query: {
-      enabled: tokenAmount > 0n
+    args: [BigInt(creatorId), BigInt(shares)],
+    query: { 
+      enabled: !!creatorId && shares > 0,
+      refetchOnWindowFocus: false,
     }
   })
+
+  const sellPriceInEth = sellPriceWei ? formatEther(sellPriceWei) : '0'
 
   return {
-    buyPrice: buyPrice || 0n,
-    sellPrice: sellPrice || 0n,
-    buyPriceFormatted: buyPrice ? formatEther(buyPrice) : '0',
-    sellPriceFormatted: sellPrice ? formatEther(sellPrice) : '0'
-  }
-}
-
-// Hook to watch price changes and build chart data
-export function usePriceHistory(tokenAddress: Address) {
-  const [priceHistory, setPriceHistory] = useState<PriceData[]>([])
-
-  // Watch for buy/sell events to update price history
-  useWatchContractEvent({
-    address: tokenAddress,
-    abi: TOKEN_ABI,
-    eventName: 'Buy',
-    onLogs: (logs) => {
-      logs.forEach((log) => {
-        const price = Number(formatEther(log.args.ethAmount || 0n)) / Number(formatEther(log.args.tokensAmount || 1n))
-        setPriceHistory(prev => [...prev, {
-          timestamp: Date.now(),
-          price,
-          volume: Number(formatEther(log.args.ethAmount || 0n))
-        }].slice(-100)) // Keep last 100 data points
-      })
-    }
-  })
-
-  useWatchContractEvent({
-    address: tokenAddress,
-    abi: TOKEN_ABI,
-    eventName: 'Sell',
-    onLogs: (logs) => {
-      logs.forEach((log) => {
-        const price = Number(formatEther(log.args.ethAmount || 0n)) / Number(formatEther(log.args.tokensAmount || 1n))
-        setPriceHistory(prev => [...prev, {
-          timestamp: Date.now(),
-          price,
-          volume: Number(formatEther(log.args.ethAmount || 0n))
-        }].slice(-100))
-      })
-    }
-  })
-
-  return priceHistory
-}
-
-// Hook for communication requests
-export function useCommunication() {
-  const { writeContract, isPending, error } = useWriteContract()
-
-  const requestVideoCall = async (tokenAddress: Address, minutes: number, pricePerMinute: bigint) => {
-    const totalCost = pricePerMinute * BigInt(minutes)
-    
-    await writeContract({
-      address: tokenAddress,
-      abi: TOKEN_ABI,
-      functionName: 'requestVideoCall',
-      args: [BigInt(minutes)],
-      value: totalCost,
-    })
-  }
-
-  const requestVoiceCall = async (tokenAddress: Address, minutes: number, pricePerMinute: bigint) => {
-    const totalCost = pricePerMinute * BigInt(minutes)
-    
-    await writeContract({
-      address: tokenAddress,
-      abi: TOKEN_ABI,
-      functionName: 'requestVoiceCall',
-      args: [BigInt(minutes)],
-      value: totalCost,
-    })
-  }
-
-  const sendMessage = async (tokenAddress: Address, messagePrice: bigint) => {
-    await writeContract({
-      address: tokenAddress,
-      abi: TOKEN_ABI,
-      functionName: 'sendMessage',
-      value: messagePrice,
-    })
-  }
-
-  return {
-    requestVideoCall,
-    requestVoiceCall,
-    sendMessage,
-    isPending,
-    error
+    sellPriceInEth,
+    sellPriceWei,
+    refetch
   }
 } 

@@ -22,4 +22,17 @@ export interface PumpToken extends Token {
   holders: number
   isGraduated: boolean
   bondingCurveProgress: number
+}
+
+export interface Creator {
+  id: number
+  address: string
+  name: string
+  bio: string
+  profileImage: string
+  twitter: string
+  totalShares: number
+  currentPrice: number
+  joinedAt: number
+  isActive: boolean
 } 

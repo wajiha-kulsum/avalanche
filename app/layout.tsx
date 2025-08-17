@@ -5,6 +5,7 @@ import '@rainbow-me/rainbowkit/styles.css';
 import { WalletProvider } from "../providers/WalletProvider";
 import { WalletConnect } from "../components/WalletConnect";
 import { SearchBar } from "../components/SearchBar";
+import { Toaster } from 'react-hot-toast';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,8 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Avalanche Pump",
-  description: "Pump.fun style token launcher on Avalanche",
+  title: "Avalanche Ava.fun",
+  description: "Share your time with the world and get rewarded",
 };
 
 export default function RootLayout({
@@ -41,7 +42,7 @@ export default function RootLayout({
                   <div className="w-10 h-10 bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
                     <span className="text-white font-bold text-lg">A</span>
                   </div>
-                  <span className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">avax.fun</span>
+                  <span className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">ava.fun</span>
                 </div>
 
                 {/* Navigation Links */}
@@ -69,6 +70,31 @@ export default function RootLayout({
           <main className="pt-20">
             {children}
           </main>
+          
+          {/* Toast Notifications */}
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: '#1f2937',
+                color: '#f9fafb',
+                border: '1px solid #374151',
+              },
+              success: {
+                iconTheme: {
+                  primary: '#10b981',
+                  secondary: '#f9fafb',
+                },
+              },
+              error: {
+                iconTheme: {
+                  primary: '#ef4444',
+                  secondary: '#f9fafb',
+                },
+              },
+            }}
+          />
         </WalletProvider>
       </body>
     </html>

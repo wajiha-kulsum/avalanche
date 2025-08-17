@@ -1,73 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Address, parseEther, formatEther } from 'viem'
+import { parseEther, formatEther } from 'viem'
 import { useAccount } from 'wagmi'
-import { useBuyTokens, useSellTokens, useTokenPrices, useTokenBalance, usePriceHistory, useCommunication } from './useTimeFun'
-
-// Creator to token address mapping
-// Try to load local contracts first, fallback to mock addresses
-let CREATOR_TOKEN_MAPPING: Record<string, Address> = {}
-
-try {
-  // Try to import local contracts if they exist
-  const localContracts = require('../config/local-contracts')
-  if (localContracts?.LOCAL_CONTRACTS?.tokens) {
-    CREATOR_TOKEN_MAPPING = localContracts.LOCAL_CONTRACTS.tokens
-  }
-} catch (error) {
-  // Fallback to mock addresses for development
-  CREATOR_TOKEN_MAPPING = {
-    '1': '0x1234567890123456789012345678901234567890' as Address, // Kawz
-    '2': '0x2345678901234567890123456789012345678901' as Address, // Sarah Chen
-    '3': '0x3456789012345678901234567890123456789012' as Address, // Alex Rivera
-    '4': '0x4567890123456789012345678901234567890123' as Address, // Maya Patel
-    '5': '0x5678901234567890123456789012345678901234' as Address, // Jordan Kim
-    '6': '0x6789012345678901234567890123456789012345' as Address, // Casey Morgan
-    '7': '0x7890123456789012345678901234567890123456' as Address, // Riley Chen
-    '8': '0x8901234567890123456789012345678901234567' as Address, // Sam Taylor
-    '9': '0x9012345678901234567890123456789012345678' as Address, // Avery Johnson
-  }
-}
-
-// Mock token info for development
-const MOCK_TOKEN_INFO: Record<string, {
-  name: string
-  symbol: string
-  currentPrice: number
-  marketCap: number
-  totalSupply: number
-  tradingEnabled: boolean
-}> = {
-  '1': {
-    name: 'Kawz Token',
-    symbol: 'KAWZ',
-    currentPrice: 0.0125,
-    marketCap: 12.5,
-    totalSupply: 850000,
-    tradingEnabled: true,
-  },
-  '2': {
-    name: 'Sarah Chen Token',
-    symbol: 'SARAH',
-    currentPrice: 0.0089,
-    marketCap: 8.9,
-    totalSupply: 750000,
-    tradingEnabled: true,
-  },
-  '3': {
-    name: 'Alex Rivera Token',
-    symbol: 'ALEX',
-    currentPrice: 0.0156,
-    marketCap: 15.6,
-    totalSupply: 920000,
-    tradingEnabled: true,
-  },
-  // Add more as needed...
-}
+import { useTimeFun, useCreatorInfo, useSharePrice, useUserShares, useSellPrice } from './useTimeFun'
+import toast from 'react-hot-toast'
 
 interface CreatorTokenData {
-  tokenAddress: Address
   name: string
   symbol: string
   currentPrice: number
@@ -78,129 +17,286 @@ interface CreatorTokenData {
   isLoading: boolean
 }
 
+// Mock price history for charts
+const generateMockPriceHistory = (creatorId: string) => {
+  const seed = parseInt(creatorId) || 1
+  const basePrice = 0.001 + (seed * 0.0002)
+  const dataPoints = []
+  
+  for (let i = 0; i < 30; i++) {
+    const variation = (Math.sin(i * 0.5 + seed) * 0.0001) + (Math.random() * 0.0002 - 0.0001)
+    dataPoints.push({
+      timestamp: Date.now() - (29 - i) * 24 * 60 * 60 * 1000,
+      price: basePrice + variation * i,
+      volume: Math.random() * 1000 + 100
+    })
+  }
+  
+  return dataPoints
+}
+
 export function useCreatorToken(creatorId: string) {
   const { address: userAddress } = useAccount()
-  const tokenAddress = CREATOR_TOKEN_MAPPING[creatorId]
+  const creatorIdNum = parseInt(creatorId) || 0
   
-  // Get token data from hooks
-  const { buyTokens, isPending: isBuying, error: buyError } = useBuyTokens()
-  const { sellTokens, isPending: isSelling, error: sellError } = useSellTokens()
-  const { buyPriceFormatted, sellPriceFormatted } = useTokenPrices(tokenAddress || '0x' as Address, '1')
-  const { balanceFormatted, isLoading: balanceLoading } = useTokenBalance(tokenAddress || '0x' as Address, userAddress)
-  const priceHistory = usePriceHistory(tokenAddress || '0x' as Address)
-  const { requestVideoCall, requestVoiceCall, sendMessage, isPending: isCommunicating } = useCommunication()
-
-  // Mock data fallback
-  const mockData = MOCK_TOKEN_INFO[creatorId]
+  // TimeFun contract hooks
+  const { 
+    purchaseShares, 
+    sellCreatorShares, 
+    isPending, 
+    isConfirming,
+    isConfirmed 
+  } = useTimeFun()
   
+  const { creator, refetch: refetchCreator } = useCreatorInfo(creatorIdNum)
+  const { shares: userShares, refetch: refetchShares } = useUserShares(creatorIdNum)
+  const { priceInEth: sharePrice } = useSharePrice(creatorIdNum, 1)
+  const { sellPriceInEth } = useSellPrice(creatorIdNum, 1)
+  
+  // Mock price history
+  const [priceHistory] = useState(() => generateMockPriceHistory(creatorId))
+  
+  // Safe price parsing with fallbacks
+  const safeParsedSharePrice = parseFloat(sharePrice) || 0.001
+  const safeParsedSellPrice = parseFloat(sellPriceInEth) || 0.001
+  
+  // Token data compatible with existing UI
   const tokenData: CreatorTokenData = {
-    tokenAddress: tokenAddress || '0x' as Address,
-    name: mockData?.name || `Creator ${creatorId} Token`,
-    symbol: mockData?.symbol || `CR${creatorId}`,
-    currentPrice: mockData?.currentPrice || 0.01,
-    marketCap: mockData?.marketCap || 10,
-    totalSupply: mockData?.totalSupply || 1000000,
-    tradingEnabled: mockData?.tradingEnabled || true,
-    userBalance: balanceFormatted,
-    isLoading: balanceLoading,
+    name: creator?.name || `Creator ${creatorId}`,
+    symbol: `CR${creatorId}`,
+    currentPrice: safeParsedSharePrice,
+    marketCap: creator ? creator.totalShares * safeParsedSharePrice : 0,
+    totalSupply: creator?.totalShares || 0,
+    tradingEnabled: true,
+    userBalance: userShares.toString(),
+    isLoading: false,
   }
 
-  // Buy function
+  // Buy shares function - SIMPLIFIED TO AVOID CALCULATION ERRORS
   const buyCreatorTokens = async (ethAmount: string, slippage: number = 5) => {
-    if (!tokenAddress || !userAddress) {
-      throw new Error('Token address or user address not available')
+    if (!userAddress || creatorIdNum === 0) {
+      toast.error('Please connect your wallet')
+      throw new Error('User not connected or invalid creator ID')
+    }
+    
+    if (!creator) {
+      toast.error('Creator not found')
+      throw new Error('Creator not found')
     }
     
     try {
-      await buyTokens(tokenAddress, ethAmount, slippage)
+      // Validate inputs
+      const ethValue = parseFloat(ethAmount)
+      if (!ethValue || ethValue <= 0 || !isFinite(ethValue)) {
+        toast.error('Please enter a valid ETH amount')
+        throw new Error('Invalid ETH amount')
+      }
+      
+      // FIXED: Always buy a reasonable number of shares (1-10) based on ETH amount
+      let sharesToBuy = 1
+      if (ethValue >= 0.01) sharesToBuy = Math.min(10, Math.floor(ethValue / 0.001))
+      else sharesToBuy = 1
+      
+      console.log(`FIXED CALCULATION: Buying ${sharesToBuy} shares for ${ethAmount} ETH`)
+      
+      // Show loading toast
+      const toastId = toast.loading(`Buying ${sharesToBuy} shares...`)
+      
+      try {
+        await purchaseShares(creatorIdNum, sharesToBuy, ethAmount)
+        
+        toast.dismiss(toastId)
+        toast.success(`Successfully bought ${sharesToBuy} shares!`)
+        
+        // Refetch data after successful purchase
+        setTimeout(() => {
+          refetchCreator()
+          refetchShares()
+        }, 3000)
+        
+      } catch (txError: any) {
+        toast.dismiss(toastId)
+        
+        if (txError.message?.includes('User rejected')) {
+          toast.error('Transaction cancelled by user')
+        } else if (txError.message?.includes('insufficient funds')) {
+          toast.error('Insufficient funds for transaction')
+        } else if (txError.message?.includes('Insufficient payment')) {
+          toast.error('Not enough ETH sent for shares')
+        } else if (txError.message?.includes('gas')) {
+          toast.error('Transaction failed due to gas issues')
+        } else {
+          toast.error('Transaction failed. Please try again.')
+        }
+        throw txError
+      }
+      
     } catch (error) {
-      console.error('Failed to buy creator tokens:', error)
+      console.error('Failed to buy creator shares:', error)
       throw error
     }
   }
 
-  // Sell function
+  // Sell shares function
   const sellCreatorTokens = async (tokenAmount: string, slippage: number = 5) => {
-    if (!tokenAddress || !userAddress) {
-      throw new Error('Token address or user address not available')
+    if (!userAddress || creatorIdNum === 0) {
+      toast.error('Please connect your wallet')
+      throw new Error('User not connected or invalid creator ID')
     }
     
     try {
-      await sellTokens(tokenAddress, tokenAmount, slippage)
+      const sharesToSell = parseInt(tokenAmount)
+      
+      // Validate inputs
+      if (!sharesToSell || sharesToSell < 1 || !isFinite(sharesToSell)) {
+        toast.error('Please enter a valid number of shares to sell')
+        throw new Error('Invalid number of shares to sell')
+      }
+      
+      if (sharesToSell > userShares) {
+        toast.error(`You only own ${userShares} shares`)
+        throw new Error(`You only own ${userShares} shares`)
+      }
+      
+      console.log(`Selling ${sharesToSell} shares`)
+      
+      // Show loading toast
+      const toastId = toast.loading(`Selling ${sharesToSell} shares...`)
+      
+      try {
+        await sellCreatorShares(creatorIdNum, sharesToSell)
+        
+        toast.dismiss(toastId)
+        toast.success(`Successfully sold ${sharesToSell} shares!`)
+        
+        // Refetch data after successful sale
+        setTimeout(() => {
+          refetchCreator()
+          refetchShares()
+        }, 3000)
+        
+      } catch (txError: any) {
+        toast.dismiss(toastId)
+        
+        if (txError.message?.includes('User rejected')) {
+          toast.error('Transaction cancelled by user')
+        } else if (txError.message?.includes('Insufficient shares')) {
+          toast.error('You don\'t have enough shares to sell')
+        } else {
+          toast.error('Transaction failed. Please try again.')
+        }
+        throw txError
+      }
+      
     } catch (error) {
-      console.error('Failed to sell creator tokens:', error)
+      console.error('Failed to sell creator shares:', error)
       throw error
     }
   }
 
-  // Communication functions
+  // Communication functions (mock for now)
   const requestVideo = async (minutes: number) => {
-    if (!tokenAddress) throw new Error('Token address not available')
+    if (userShares < 1) {
+      toast.error('You need to own at least 1 share to request video calls')
+      throw new Error('You need to own at least 1 share to request video calls')
+    }
     
-    const pricePerMinute = parseEther('0.05') // $50/hour equivalent
-    await requestVideoCall(tokenAddress, minutes, pricePerMinute)
+    // Mock video call request
+    toast.success(`Video call requested for ${minutes} minutes`)
+    console.log(`Video call requested for ${minutes} minutes`)
+    return Promise.resolve()
   }
 
   const requestVoice = async (minutes: number) => {
-    if (!tokenAddress) throw new Error('Token address not available')
+    if (userShares < 1) {
+      toast.error('You need to own at least 1 share to request voice calls')
+      throw new Error('You need to own at least 1 share to request voice calls')
+    }
     
-    const pricePerMinute = parseEther('0.025') // $25/hour equivalent
-    await requestVoiceCall(tokenAddress, minutes, pricePerMinute)
+    // Mock voice call request
+    toast.success(`Voice call requested for ${minutes} minutes`)
+    console.log(`Voice call requested for ${minutes} minutes`)
+    return Promise.resolve()
   }
 
   const sendDirectMessage = async () => {
-    if (!tokenAddress) throw new Error('Token address not available')
+    if (userShares < 1) {
+      toast.error('You need to own at least 1 share to send messages')
+      throw new Error('You need to own at least 1 share to send messages')
+    }
     
-    const messagePrice = parseEther('0.01') // $10/message equivalent
-    await sendMessage(tokenAddress, messagePrice)
+    // Mock message sending
+    toast.success('Direct message sent successfully!')
+    console.log('Direct message sent')
+    return Promise.resolve()
   }
 
-  // Calculate estimated costs
+  // Calculate estimated costs - SIMPLIFIED
   const getEstimatedCost = (ethAmount: string) => {
     const amount = parseFloat(ethAmount)
+    if (!amount || !isFinite(amount)) {
+      return {
+        ethCost: 0,
+        usdCost: 0,
+        estimatedTokens: 0,
+      }
+    }
+    
+    let estimatedShares = 1
+    if (amount >= 0.01) estimatedShares = Math.min(10, Math.floor(amount / 0.001))
+    
     return {
       ethCost: amount,
       usdCost: amount * 3000, // Assume ETH = $3000 for demo
-      estimatedTokens: amount / tokenData.currentPrice,
+      estimatedTokens: estimatedShares,
     }
   }
 
   const getEstimatedReturn = (tokenAmount: string) => {
     const amount = parseFloat(tokenAmount)
+    if (!amount || !isFinite(amount)) {
+      return {
+        tokenAmount: 0,
+        ethReturn: 0,
+        usdReturn: 0,
+      }
+    }
+    
+    const ethReturn = amount * safeParsedSellPrice * 0.9 // 10% fees
     return {
       tokenAmount: amount,
-      ethReturn: amount * tokenData.currentPrice * 0.95, // 5% fee
-      usdReturn: amount * tokenData.currentPrice * 0.95 * 3000,
+      ethReturn,
+      usdReturn: ethReturn * 3000,
     }
   }
 
   return {
     // Token data
     tokenData,
-    tokenAddress,
+    tokenAddress: creator?.address || '0x',
     priceHistory,
     
     // Trading functions
     buyCreatorTokens,
     sellCreatorTokens,
-    isBuying,
-    isSelling,
-    buyError,
-    sellError,
+    isBuying: isPending,
+    isSelling: isPending,
+    buyError: null,
+    sellError: null,
     
     // Communication functions
     requestVideo,
     requestVoice,
     sendDirectMessage,
-    isCommunicating,
+    isCommunicating: isPending,
     
     // Utility functions
     getEstimatedCost,
     getEstimatedReturn,
     
     // Prices
-    buyPriceFormatted,
-    sellPriceFormatted,
+    buyPriceFormatted: sharePrice,
+    sellPriceFormatted: sellPriceInEth,
     
     // User state
     userAddress,

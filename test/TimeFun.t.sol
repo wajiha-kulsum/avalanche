@@ -2,216 +2,251 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import "../src/TimeFunFactory.sol";
-import "../src/CreatorToken.sol";
+import "../src/TimeFun.sol";
 
 contract TimeFunTest is Test {
-    TimeFunFactory factory;
-    CreatorToken token;
-    
-    address owner = address(1);
-    address creator = address(2);
-    address buyer = address(3);
-    address seller = address(4);
+    TimeFun public timeFun;
+    address public owner;
+    address public creator1;
+    address public creator2;
+    address public user1;
+    address public user2;
     
     function setUp() public {
-        vm.startPrank(owner);
-        factory = new TimeFunFactory();
-        vm.stopPrank();
-        
-        // Create a token
-        vm.deal(creator, 1 ether);
-        vm.startPrank(creator);
-        
-        address tokenAddress = factory.createToken{value: 0.01 ether}(
-            "Test Creator Token",
-            "TCT",
-            "Test Creator",
-            "A test creator for testing purposes",
-            "https://example.com/image.jpg"
-        );
-        
-        token = CreatorToken(tokenAddress);
-        vm.stopPrank();
+        owner = address(this);
+        // Use proper addresses instead of precompile addresses
+        creator1 = address(0x100);
+        creator2 = address(0x200);
+        user1 = address(0x300);
+        user2 = address(0x400);
+
+        // Deploy TimeFun contract
+        timeFun = new TimeFun();
         
         // Give test accounts some ETH
-        vm.deal(buyer, 10 ether);
-        vm.deal(seller, 10 ether);
+        vm.deal(creator1, 100 ether);
+        vm.deal(creator2, 100 ether);
+        vm.deal(user1, 100 ether);
+        vm.deal(user2, 100 ether);
     }
-    
-    function testFactoryCreation() public {
-        assertEq(factory.totalTokens(), 1);
-        assertEq(factory.totalCreators(), 1);
+
+    function testJoinAsCreator() public {
+        // Test joining as creator
+        vm.prank(creator1);
+        timeFun.joinAsCreator(
+            "Alice Creator",
+            "I'm a content creator",
+            "https://example.com/alice.jpg",
+            "@alice"
+        );
+
+        // Check creator was registered
+        assertEq(timeFun.creatorToId(creator1), 1);
         
-        address[] memory tokens = factory.getAllTokens();
-        assertEq(tokens.length, 1);
-        assertEq(tokens[0], address(token));
+        // Check creator info
+        (
+            address creatorAddress,
+            string memory name,
+            string memory bio,
+            string memory profileImage,
+            string memory twitter,
+            uint256 totalShares,
+            uint256 currentPrice
+        ) = timeFun.getCreatorInfo(1);
+
+        assertEq(creatorAddress, creator1);
+        assertEq(name, "Alice Creator");
+        assertEq(bio, "I'm a content creator");
+        assertEq(profileImage, "https://example.com/alice.jpg");
+        assertEq(twitter, "@alice");
+        assertEq(totalShares, 0);
+        assertEq(currentPrice, 0.001 ether);
     }
-    
-    function testTokenBasics() public {
-        assertEq(token.name(), "Test Creator Token");
-        assertEq(token.symbol(), "TCT");
-        assertEq(token.creator(), creator);
-        assertEq(token.creatorName(), "Test Creator");
-        assertEq(token.totalSupply(), 0);
-        assertEq(token.tradingEnabled(), false);
+
+    function testCannotJoinTwice() public {
+        // First join
+        vm.prank(creator1);
+        timeFun.joinAsCreator("Alice", "Bio", "Image", "@alice");
+
+        // Try to join again
+        vm.prank(creator1);
+        vm.expectRevert("Already registered as creator");
+        timeFun.joinAsCreator("Alice Again", "Bio", "Image", "@alice");
     }
-    
-    function testBuyTokens() public {
-        vm.startPrank(buyer);
+
+    function testBuyShares() public {
+        // Join as creator first
+        vm.prank(creator1);
+        timeFun.joinAsCreator("Alice", "Bio", "Image", "@alice");
+
+        // Buy shares
+        uint256 shares = 5;
+        uint256 cost = timeFun.getBuyPrice(1, shares);
         
-        uint256 ethAmount = 0.1 ether;
-        uint256 expectedTokens = token.calculateTokensForEth(ethAmount);
+        vm.prank(user1);
+        timeFun.buyShares{value: cost}(1, shares);
+
+        // Check shares owned
+        assertEq(timeFun.getSharesOwned(1, user1), shares);
         
-        // Buy tokens
-        token.buy{value: ethAmount}(0);
-        
-        assertEq(token.balanceOf(buyer), expectedTokens);
-        assertEq(token.totalSupply(), expectedTokens);
-        
-        // Check creator received fee (5%)
-        uint256 expectedFee = ethAmount * 5 / 100;
-        assertEq(creator.balance, 1 ether - 0.01 ether + expectedFee);
-        
-        vm.stopPrank();
+        // Check total shares
+        (, , , , , uint256 totalShares, ) = timeFun.getCreatorInfo(1);
+        assertEq(totalShares, shares);
     }
-    
-    function testSellTokens() public {
-        // First buy some tokens
-        vm.startPrank(buyer);
-        uint256 ethAmount = 0.1 ether;
-        token.buy{value: ethAmount}(0);
-        
-        uint256 tokenBalance = token.balanceOf(buyer);
-        uint256 sellAmount = tokenBalance / 2;
-        
-        uint256 expectedEth = token.getSellPrice(sellAmount);
-        uint256 balanceBefore = buyer.balance;
-        
-        // Sell half the tokens
-        token.sell(sellAmount, 0);
-        
-        assertEq(token.balanceOf(buyer), tokenBalance - sellAmount);
-        
-        // Check received ETH (minus 5% fee)
-        uint256 expectedReceived = expectedEth * 95 / 100;
-        assertEq(buyer.balance, balanceBefore + expectedReceived);
-        
-        vm.stopPrank();
+
+    function testBuyPriceCalculation() public {
+        // Join as creator
+        vm.prank(creator1);
+        timeFun.joinAsCreator("Alice", "Bio", "Image", "@alice");
+
+        // Test price for first share
+        uint256 firstSharePrice = timeFun.getBuyPrice(1, 1);
+        assertEq(firstSharePrice, 0.001 ether);
+
+        // Buy first share
+        vm.prank(user1);
+        timeFun.buyShares{value: firstSharePrice}(1, 1);
+
+        // Test price for second share (should be higher)
+        uint256 secondSharePrice = timeFun.getBuyPrice(1, 1);
+        assertGt(secondSharePrice, firstSharePrice);
     }
-    
-    function testBondingCurve() public {
-        vm.startPrank(buyer);
+
+    function testSellShares() public {
+        // Setup: Join as creator and buy shares
+        vm.prank(creator1);
+        timeFun.joinAsCreator("Alice", "Bio", "Image", "@alice");
+
+        uint256 shares = 5;
+        uint256 cost = timeFun.getBuyPrice(1, shares);
         
-        // Buy tokens in increments and check price increases
-        uint256 price1 = token.getBuyPrice(1 ether);
-        token.buy{value: 0.01 ether}(0);
+        vm.prank(user1);
+        timeFun.buyShares{value: cost}(1, shares);
+
+        // Get sell price
+        uint256 sellPrice = timeFun.getSellPrice(1, 2);
         
-        uint256 price2 = token.getBuyPrice(1 ether);
-        assertGt(price2, price1, "Price should increase after buy");
+        // Sell 2 shares
+        uint256 balanceBefore = user1.balance;
+        vm.prank(user1);
+        timeFun.sellShares(1, 2);
         
-        vm.stopPrank();
+        // Check shares were reduced
+        assertEq(timeFun.getSharesOwned(1, user1), 3);
+        
+        // Check user received ETH (minus fees)
+        assertGt(user1.balance, balanceBefore);
     }
-    
-    function testCommunicationFeatures() public {
-        vm.startPrank(buyer);
-        
-        uint256 videoPrice = token.videoCallPrice();
-        uint256 voicePrice = token.voiceCallPrice();
-        uint256 messagePrice = token.messagePrice();
-        
-        uint256 creatorBalanceBefore = creator.balance;
-        
-        // Request video call (1 minute)
-        token.requestVideoCall{value: videoPrice}(1);
-        assertEq(creator.balance, creatorBalanceBefore + videoPrice);
-        
-        // Request voice call (1 minute)  
-        token.requestVoiceCall{value: voicePrice}(1);
-        assertEq(creator.balance, creatorBalanceBefore + videoPrice + voicePrice);
-        
-        // Send message
-        token.sendMessage{value: messagePrice}();
-        assertEq(creator.balance, creatorBalanceBefore + videoPrice + voicePrice + messagePrice);
-        
-        vm.stopPrank();
+
+    function testCannotSellMoreSharesThanOwned() public {
+        // Setup
+        vm.prank(creator1);
+        timeFun.joinAsCreator("Alice", "Bio", "Image", "@alice");
+
+        uint256 cost = timeFun.getBuyPrice(1, 2);
+        vm.prank(user1);
+        timeFun.buyShares{value: cost}(1, 2);
+
+        // Try to sell more shares than owned
+        vm.prank(user1);
+        vm.expectRevert("Insufficient shares");
+        timeFun.sellShares(1, 5);
     }
-    
-    function testCreatorOnlyFunctions() public {
-        vm.startPrank(creator);
-        
-        // Update creator info
-        token.updateCreatorInfo("Updated description", "new-image.jpg");
-        assertEq(token.description(), "Updated description");
-        assertEq(token.profileImage(), "new-image.jpg");
-        
-        // Update pricing
-        token.updatePricing(0.1 ether, 0.05 ether, 0.02 ether);
-        assertEq(token.videoCallPrice(), 0.1 ether);
-        assertEq(token.voiceCallPrice(), 0.05 ether);
-        assertEq(token.messagePrice(), 0.02 ether);
-        
-        vm.stopPrank();
-        
-        // Test unauthorized access
-        vm.startPrank(buyer);
-        vm.expectRevert("Only creator can call this");
-        token.updateCreatorInfo("Unauthorized", "hack.jpg");
-        vm.stopPrank();
+
+    function testHasAccessTo() public {
+        // Setup
+        vm.prank(creator1);
+        timeFun.joinAsCreator("Alice", "Bio", "Image", "@alice");
+
+        // User without shares should not have access
+        assertFalse(timeFun.hasAccessTo(1, user1));
+
+        // Buy shares
+        uint256 cost = timeFun.getBuyPrice(1, 1);
+        vm.prank(user1);
+        timeFun.buyShares{value: cost}(1, 1);
+
+        // User with shares should have access
+        assertTrue(timeFun.hasAccessTo(1, user1));
     }
-    
-    function testTradingThreshold() public {
-        vm.startPrank(buyer);
-        
-        // Initially trading should be disabled
-        assertEq(token.tradingEnabled(), false);
-        
-        // Buy enough tokens to reach threshold (need to calculate required ETH)
-        uint256 threshold = token.TRADING_THRESHOLD();
-        
-        // This is a simplified test - in practice you'd need to calculate exact ETH needed
-        vm.deal(buyer, 100 ether);
-        token.buy{value: 50 ether}(0);
-        
-        // Check if trading is enabled (depends on how much was actually bought)
-        if (token.totalSupply() >= threshold) {
-            assertEq(token.tradingEnabled(), true);
-        }
-        
-        vm.stopPrank();
+
+    function testGetAllCreators() public {
+        // Initially no creators
+        uint256[] memory creators = timeFun.getAllCreators();
+        assertEq(creators.length, 0);
+
+        // Add first creator
+        vm.prank(creator1);
+        timeFun.joinAsCreator("Alice", "Bio", "Image", "@alice");
+
+        creators = timeFun.getAllCreators();
+        assertEq(creators.length, 1);
+        assertEq(creators[0], 1);
+
+        // Add second creator
+        vm.prank(creator2);
+        timeFun.joinAsCreator("Bob", "Bio", "Image", "@bob");
+
+        creators = timeFun.getAllCreators();
+        assertEq(creators.length, 2);
+        assertEq(creators[1], 2);
     }
-    
-    function test_RevertWhen_InsufficientPayment() public {
-        vm.startPrank(buyer);
-        
-        // Should fail with insufficient payment
-        vm.expectRevert("Insufficient payment");
-        token.requestVideoCall{value: 0.01 ether}(1);
-        
-        vm.stopPrank();
+
+    function testInvalidCreatorId() public {
+        // Test with non-existent creator ID
+        vm.expectRevert("Invalid creator ID");
+        timeFun.getCreatorInfo(999);
+
+        vm.expectRevert("Invalid creator ID");
+        timeFun.getBuyPrice(999, 1);
+
+        vm.expectRevert("Invalid creator ID");
+        timeFun.getSellPrice(999, 1);
     }
-    
-    function test_RevertWhen_SlippageProtection() public {
-        vm.startPrank(buyer);
+
+    function testCreatorFees() public {
+        // Setup
+        vm.prank(creator1);
+        timeFun.joinAsCreator("Alice", "Bio", "Image", "@alice");
+
+        uint256 creatorBalanceBefore = creator1.balance;
+        uint256 shares = 10;
+        uint256 cost = timeFun.getBuyPrice(1, shares);
         
-        // Should fail with high slippage requirement
-        vm.expectRevert("Slippage too high");
-        token.buy{value: 0.1 ether}(1000 ether); // Expecting way more tokens than possible
-        
-        vm.stopPrank();
+        // Buy shares
+        vm.prank(user1);
+        timeFun.buyShares{value: cost}(1, shares);
+
+        // Creator should receive 5% fee
+        uint256 expectedFee = (cost * 5) / 100;
+        assertEq(creator1.balance, creatorBalanceBefore + expectedFee);
     }
-    
-    function testGetMarketCap() public {
-        vm.startPrank(buyer);
+
+    function testOwnerFunctions() public {
+        // Test owner can withdraw fees
+        uint256 ownerBalanceBefore = address(this).balance;
         
-        uint256 initialCap = token.getMarketCap();
-        assertEq(initialCap, 0);
+        // Add some ETH to contract through platform fees
+        vm.prank(creator1);
+        timeFun.joinAsCreator("Alice", "Bio", "Image", "@alice");
         
-        token.buy{value: 0.1 ether}(0);
+        uint256 cost = timeFun.getBuyPrice(1, 10);
+        vm.prank(user1);
+        timeFun.buyShares{value: cost}(1, 10);
+
+        // Withdraw platform fees
+        timeFun.withdrawPlatformFees();
         
-        uint256 newCap = token.getMarketCap();
-        assertGt(newCap, 0);
-        
-        vm.stopPrank();
+        // Owner should receive the platform fees
+        assertGt(address(this).balance, ownerBalanceBefore);
     }
+
+    function testNonOwnerCannotWithdraw() public {
+        vm.prank(user1);
+        vm.expectRevert("Only owner");
+        timeFun.withdrawPlatformFees();
+    }
+
+    // Helper function to receive ETH
+    receive() external payable {}
 } 
