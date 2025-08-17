@@ -1,8 +1,7 @@
-# 🚀 Time.fun Clone - Avalanche Fuji
+# 🚀 Ava.fun
 
 A decentralized social platform where creators can monetize their time through bonding curve tokens. Built on Avalanche Fuji testnet with Next.js, Foundry, and TradingView charts.
 
-![Time.fun Clone](https://img.shields.io/badge/Status-Demo%20Ready-green)
 ![Avalanche](https://img.shields.io/badge/Network-Avalanche%20Fuji-red)
 ![Next.js](https://img.shields.io/badge/Frontend-Next.js%2015-black)
 ![Foundry](https://img.shields.io/badge/Contracts-Foundry-blue)
