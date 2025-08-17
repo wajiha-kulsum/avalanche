@@ -1,8 +1,30 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+
+
+interface Creator {
+  id: number
+  name: string
+  description: string
+  creator: string
+  timeAgo: string
+  marketCap: string
+  replies: number
+  image: string
+  bgColor: string
+  isLive?: boolean
+  liveCount?: number
+}
 
 export function TopCreatorsSection() {
+  const router = useRouter()
+
+  const handleBuyTimeClick = (creator: Creator) => {
+    router.push(`/creator/${creator.id}`)
+  }
+
   const creators = [
     {
       id: 1,
@@ -113,8 +135,8 @@ export function TopCreatorsSection() {
       <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-black via-gray-900/50 to-transparent z-0"></div>
       
       {/* Background elements */}
-      <div className="absolute top-0 left-0 w-72 h-72 bg-purple-500/5 rounded-full blur-3xl"></div>
-      <div className="absolute bottom-0 right-0 w-72 h-72 bg-pink-500/5 rounded-full blur-3xl"></div>
+      <div className="absolute top-0 left-0 w-72 h-72 bg-green-500/5 rounded-full blur-3xl"></div>
+      <div className="absolute bottom-0 right-0 w-72 h-72 bg-emerald-500/5 rounded-full blur-3xl"></div>
       
       {/* Bottom gradient mask to blend with next section */}
       <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-gray-900 via-gray-800/50 to-transparent z-0"></div>
@@ -122,7 +144,7 @@ export function TopCreatorsSection() {
       <div className="container mx-auto relative z-10">
         <div className="mb-16 text-center">
           <h2 className="text-5xl font-bold text-white mb-6">
-            Top <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Creators</span>
+            Top <span className="bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">Creators</span>
           </h2>
           <p className="text-gray-400 text-xl max-w-2xl mx-auto">
             Discover the most innovative creators building the future of time-based social interactions
@@ -184,7 +206,7 @@ export function TopCreatorsSection() {
                   </div>
 
                   {/* Title */}
-                  <h3 className="text-white font-bold text-sm mb-3 line-clamp-2 group-hover:text-purple-300 transition-colors">
+                  <h3 className="text-white font-bold text-sm mb-3 line-clamp-2 group-hover:text-green-300 transition-colors">
                     {creator.name}
                   </h3>
 
@@ -194,6 +216,16 @@ export function TopCreatorsSection() {
                       {creator.description}
                     </p>
                   )}
+
+                  {/* Buy Time Button */}
+                  <div className="mt-auto pt-3">
+                    <button 
+                      onClick={() => handleBuyTimeClick(creator)}
+                      className="w-full py-2 px-3 bg-gradient-to-r from-green-600/80 to-emerald-600/80 text-white text-xs font-semibold rounded-lg opacity-0 transform translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 group-hover:shadow-lg group-hover:shadow-green-500/25 group-hover:scale-105 transition-all duration-300 ease-out hover:from-green-500 hover:to-emerald-500"
+                    >
+                      Buy Time
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -202,11 +234,13 @@ export function TopCreatorsSection() {
 
         {/* View More Button */}
         <div className="text-center mt-16">
-          <button className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all transform hover:scale-105 shadow-lg">
+          <button className="px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all transform hover:scale-105 shadow-lg">
             View All Creators
           </button>
         </div>
       </div>
+
+
     </section>
   )
 } 

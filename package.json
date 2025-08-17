@@ -6,17 +6,25 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "setup-local": "./scripts/setup-local.sh",
+    "anvil": "anvil --host 0.0.0.0 --port 8545 --chain-id 31337",
+    "deploy-local": "forge script script/DeployLocal.s.sol --rpc-url http://127.0.0.1:8545 --broadcast",
+    "test-contracts": "forge test -vv"
   },
   "dependencies": {
     "@avalabs/core-wallets-sdk": "^3.0.0",
     "@rainbow-me/rainbowkit": "^2.2.8",
     "@tailwindcss/line-clamp": "^0.4.4",
     "@tanstack/react-query": "^5.85.3",
+    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "lightweight-charts": "^4.2.0",
+    "lucide-react": "^0.539.0",
     "next": "15.4.6",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "recharts": "^2.15.4",
     "tailwind-merge": "^3.3.1",
     "viem": "^2.33.3",
     "wagmi": "^2.16.3"
@@ -30,6 +38,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.4.6",
     "tailwindcss": "^4",
+    "tw-animate-css": "^1.3.7",
     "typescript": "^5"
   }
 }
